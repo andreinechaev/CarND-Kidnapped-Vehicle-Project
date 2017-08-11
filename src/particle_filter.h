@@ -28,10 +28,8 @@ struct Particle {
 class ParticleFilter {
 	
 	// Number of particles to draw
-	int num_particles; 
-	
-	
-	
+	int num_particles;
+
 	// Flag, if filter is initialized
 	bool is_initialized;
 	
@@ -48,9 +46,9 @@ public:
 	ParticleFilter() : num_particles(0), is_initialized(false) {}
 
 	// Destructor
-	~ParticleFilter() {}
+	~ParticleFilter() = default;
 
-	/**
+    /**
 	 * init Initializes particle filter by initializing particles to Gaussian
 	 *   distribution around first position and all the weights to 1.
 	 * @param x Initial x position [m] (simulated estimate from GPS)
