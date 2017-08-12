@@ -37,6 +37,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     normal_distribution<double> dist_y(y, std_y);
     normal_distribution<double> dist_psi(theta, std_yaw);
 
+    weights.resize(static_cast<unsigned long>(num_particles));
     particles.resize(static_cast<unsigned long>(num_particles));
     for (int i = 0; i < num_particles; i++) {
         Particle particle;
@@ -88,7 +89,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
     // NOTE: this method will NOT be called by the grading code. But you will probably find it useful to
     //   implement this method and use it as a helper during the updateWeights phase.
     for (auto &obs: observations) {
-        double min = 1e+300, d = -1.0;
+        double min = 1e+100, d;
         for (auto const &landmark: predicted) {
             if (min > (d = dist(landmark.x, landmark.y, obs.x, obs.y))) {
                 min = d;
@@ -110,8 +111,17 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     //   and the following is a good resource for the actual equation to implement (look at equation
     //   3.33
     //   http://planning.cs.uiuc.edu/node99.html
+    double std_x = std_landmark[0], std_y = std_landmark[1];
+
+    double d_sq_x = 2 * std_x * std_x;
+    double d_sq_y = 2 * std_y * std_y;
+
     for (auto &particle: particles) {
         std::vector<LandmarkObs> landmarks_in_range;
+
+        double sin_theta = sin(particle.theta);
+        double cos_theta = cos(particle.theta);
+
         for (auto &landmark: map_landmarks.landmark_list) {
             if (dist(landmark.x_f, landmark.y_f, particle.x, particle.y) <= sensor_range) {
                 LandmarkObs landmark_obs = {int(landmarks_in_range.size()), double(landmark.x_f), double(landmark.y_f)};
@@ -121,30 +131,28 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
         std::vector<LandmarkObs> transformed_obs;
         for (auto &landmark: observations) {
-            double sin_theta = sin(particle.theta);
-            double cos_theta = cos(particle.theta);
+
             double transformed_x = landmark.x * cos_theta - landmark.y * sin_theta + particle.x;
             double transformed_y = landmark.x * sin_theta + landmark.y * cos_theta + particle.y;
-            LandmarkObs obs = {landmark.id, transformed_x, transformed_y};
+            LandmarkObs obs = {
+                    landmark.id,
+                    transformed_x,
+                    transformed_y
+            };
             transformed_obs.push_back(obs);
         }
+
         dataAssociation(landmarks_in_range, transformed_obs);
 
         double sum_sqr_x_diff = 0.0, sum_sqr_y_diff = 0.0;
         for (auto const &obs: transformed_obs) {
             double x_diff = obs.x - landmarks_in_range[obs.id].x;
             double y_diff = obs.y - landmarks_in_range[obs.id].y;
-            sum_sqr_x_diff += x_diff * x_diff;
-            sum_sqr_y_diff += y_diff * y_diff;
+            sum_sqr_x_diff += pow(x_diff, 2);
+            sum_sqr_y_diff += pow(y_diff, 2);
         }
 
-        double std_x = std_landmark[0], std_y = std_landmark[1];
-
-        particle.weight = exp(-sum_sqr_x_diff / (2 * std_x * std_x) - sum_sqr_y_diff / (2 * std_y * std_y));
-    }
-
-    if (weights.size() != num_particles) {
-        weights = std::vector<double>(static_cast<unsigned long>(num_particles));
+        particle.weight = exp(-sum_sqr_x_diff / d_sq_x - sum_sqr_y_diff / d_sq_y);
     }
 
     for (int i = 0; i < num_particles; i++) {
