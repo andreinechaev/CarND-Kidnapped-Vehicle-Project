@@ -112,6 +112,8 @@ public:
 	const bool initialized() const {
 		return is_initialized;
 	}
+
+    void prediction(double delta_t, const double *std_pos, double velocity, double yaw_rate);
 };
 
 
